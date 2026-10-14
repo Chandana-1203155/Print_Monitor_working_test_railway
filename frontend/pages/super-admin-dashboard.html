@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Super Admin Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    :root { --sidebar-w: 260px; }
+    body { display: flex; margin: 0; background: var(--bg-base); color: var(--text-primary); font-family: var(--font-body); }
+    .sidebar { width: var(--sidebar-w); background: var(--bg-card); border-right: 1px solid var(--border); min-height: 100vh; padding: 24px 16px; position: fixed; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; padding-left: 8px; }
+    .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #6366f1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .brand h1 { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .brand span { color: var(--accent); }
+    .nav { display: flex; flex-direction: column; gap: 6px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--radius); color: var(--text-secondary); background: transparent; border: none; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active { background: var(--accent); color: white; }
+    .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 30px; min-height: 100vh; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .page-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; }
+    .page-subtitle { color: var(--text-secondary); font-size: 14px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+    .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .card h3 { font-family: var(--font-display); font-size: 16px; margin-bottom: 16px; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .form-control { background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text-primary); font-family: inherit; }
+    .btn { border: none; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    .badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(16,185,129,0.1); color: var(--success); }
+    .badge-red { background: rgba(239,68,68,0.1); color: var(--danger); }
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+    .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+    .actions { display: flex; gap: 8px; }
+    .search-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div>
+      <div class="brand"><div class="brand-icon">🛡️</div><h1>Secure<span>Print</span></h1></div>
+      <nav class="nav">
+        <button class="nav-item active" onclick="showTab('dashboard')">📊 Dashboard</button>
+        <button class="nav-item" onclick="showTab('admins')">👔 Administrator Management</button>
+        <button class="nav-item" onclick="showTab('printers')">🖨️ Printer Management</button>
+        <button class="nav-item" onclick="showTab('system')">⚙️ System Configuration</button>
+        <button class="nav-item" onclick="electronAPI.navigate('client-download')">⬇ Client Downloads</button>
+      </nav>
+    </div>
+    <button class="nav-item" onclick="Auth.logout()">🚪 Logout</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Super Admin Dashboard</div>
+        <div class="page-subtitle">Full system access and user management</div>
+      </div>
+      <div id="user-info" class="text-muted" style="font-size:14px;"></div>
+    </div>
+
+    <section id="tab-dashboard" class="tab-section active">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Admins</div><div class="stat-value" id="stat-admins">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Faculties</div><div class="stat-value" id="stat-faculty">—</div></div>
+        <div class="stat-card"><div class="stat-label">Active Today</div><div class="stat-value" id="stat-active-today">—</div></div>
+        <div class="stat-card"><div class="stat-label">Month Sheets</div><div class="stat-value" id="stat-month-sheets">—</div></div>
+      </div>
+    </section>
+
+    <section id="tab-admins" class="tab-section">
+      <div class="card">
+        <h3>Add New Administrator</h3>
+        <form id="add-admin-form" onsubmit="event.preventDefault(); createUser('admin');" class="form-grid" style="align-items:end;">
+          <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" id="admin-name" required /></div>
+          <div class="form-group"><label class="form-label">Username</label><input class="form-control" id="admin-username" required /></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="admin-email" required /></div>
+          <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="admin-dept" /></div>
+          <div class="form-group"><label class="form-label">Temporary Password</label><input type="password" class="form-control" id="admin-password" required minlength="6" /></div>
+          <div class="form-group"><label class="form-label">Secret Access Code</label><input type="password" class="form-control" id="admin-secret" required minlength="6" /></div>
+          <div class="form-group" style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Create Admin</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Administrators</h3>
+        <div class="table-wrapper">
+          <table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead><tbody id="admin-list"><tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Loading...</td></tr></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-printers" class="tab-section">
+      <div class="card">
+        <h3>Printer Management</h3>
+        <p class="text-muted">Manage connected printers and their configurations.</p>
+        <div class="table-wrapper">
+          <table><thead><tr><th>Printer Name</th><th>Status</th><th>Type</th></tr></thead><tbody id="printer-list"><tr><td colspan="3" class="text-center text-muted" style="padding:24px;">Loading printers...</td></tr></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-system" class="tab-section">
+      <div class="card">
+        <h3>Application Settings</h3>
+        <p class="text-muted">System configuration is managed via environment variables in <code>.env</code>.</p>
+        <ul style="font-size:13px; color:var(--text-secondary); padding-left:18px;">
+          <li>SMTP Host, Port, and Credentials</li>
+          <li>JWT Secret &amp; Token Expiry</li>
+          <li>Account Lockout Thresholds</li>
+          <li>Reset Token Expiry</li>
+          <li>Super Admin Seed Credentials</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Client Downloads</h3>
+        <p class="text-muted">Manage Secure Print Client installers and release metadata.</p>
+        <button class="btn btn-primary" onclick="electronAPI.navigate('client-download')">Open Client Downloads</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="reset-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="card-title" id="reset-modal-title">Reset Password</h3>
+        <button class="modal-close" onclick="closeModal('reset-modal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="reset-modal-label">New temporary password</label>
+        <input type="password" class="form-control" id="reset-modal-input" minlength="6" placeholder="Minimum 6 characters" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('reset-modal')">Cancel</button>
+        <button class="btn btn-primary" id="reset-modal-confirm" onclick="submitResetModal()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    const currentUser = Auth.requireAuth('superadmin');
+    if (!currentUser) { Auth.logout(); }
+    $('#user-info').textContent = currentUser.name + ' (' + currentUser.role + ')';
+
+    function showTab(id) {
+      $$('.tab-section').forEach(s => s.classList.remove('active'));
+      $('#tab-' + id).classList.add('active');
+      const idx = ['dashboard','admins','printers','system','client-download'].indexOf(id);
+      if (idx >= 0) {
+        $$('.nav-item').forEach(n => n.classList.remove('active'));
+        $$('.nav-item')[idx].classList.add('active');
+      }
+      if (['admins'].includes(id)) loadAdmins();
+      if (['printers'].includes(id)) loadPrinters();
+      if (['dashboard'].includes(id)) loadStats();
+    }
+
+    async function loadStats() {
+      const [usersRes, dashboardRes] = await Promise.all([
+        api.get('/admin/users'),
+        api.get('/print/admin/dashboard')
+      ]);
+      const all = usersRes.users || [];
+      $('#stat-admins').textContent = all.filter(u => u.role === 'admin').length;
+      $('#stat-faculty').textContent = all.filter(u => u.role === 'faculty').length;
+      if (dashboardRes.success && dashboardRes.stats) {
+        $('#stat-active-today').textContent = dashboardRes.stats.activeToday || 0;
+        $('#stat-month-sheets').textContent = dashboardRes.stats.monthSheets || 0;
+      }
+    }
+
+    async function loadPrinters() {
+      try {
+        const result = await electronAPI.getPrinters();
+        const body = $('#printer-list');
+        if (!result.success || !result.printers.length) {
+          body.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding:24px;">No printers found</td></tr>';
+          return;
+        }
+        body.innerHTML = result.printers.map(p => `
+          <tr>
+            <td>${p.name}${p.isDefault ? ' <span class="badge badge-green">Default</span>' : ''}</td>
+            <td><span class="badge badge-green">Ready</span></td>
+            <td>${p.isDefault ? 'Default' : 'Network'}</td>
+          </tr>
+        `).join('');
+      } catch(e) {
+        $('#printer-list').innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding:24px;">Unable to load printers</td></tr>';
+      }
+    }
+
+    async function createUser(role) {
+      const payload = {
+        name: role === 'admin' ? $('#admin-name').value : $('#fac-name').value,
+        username: role === 'admin' ? $('#admin-username').value : ($('#fac-username').value || null),
+        email: role === 'admin' ? $('#admin-email').value : $('#fac-email').value,
+        password: role === 'admin' ? $('#admin-password').value : $('#fac-password').value,
+        department: role === 'admin' ? $('#admin-dept').value : $('#fac-dept').value,
+        employee_id: role === 'faculty' ? ($('#fac-empid').value || null) : undefined,
+        role
+      };
+      if (role === 'admin') payload.secretCode = $('#admin-secret').value;
+      const res = await api.post('/admin/users', payload);
+      if (res.success) { Toast.success('Created ' + role + ' account'); document.getElementById('add-' + role + '-form').reset(); loadAdmins(); }
+      else { Toast.error(res.message || 'Failed to create account'); }
+    }
+
+    async function loadAdmins() {
+      const res = await api.get('/admin/users');
+      const list = (res.users || []).filter(u => u.role === 'admin');
+      const body = $('#admin-list');
+      body.innerHTML = list.map(u => `
+        <tr>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div class="user-avatar">${u.name[0]}</div><div>${u.name}</div></div></td>
+          <td>${u.username || '—'}</td>
+          <td>${u.email}</td>
+          <td>${u.department || '—'}</td>
+          <td>${u.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>'}</td>
+          <td class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="toggleUser(${u.id})">Toggle</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetPassword(${u.id})">Reset Pwd</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetSecret(${u.id})">Reset Secret</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+
+
+    async function toggleUser(id) {
+      const res = await api.put('/admin/users/' + id + '/toggle');
+      if (res.success) { Toast.success('Status updated'); loadAdmins(); }
+      else Toast.error(res.message || 'Failed');
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this account? This cannot be undone.')) return;
+      const res = await api.delete('/admin/users/' + id);
+      if (res.success) { Toast.success('Deleted'); loadAdmins(); }
+      else Toast.error(res.message || 'Failed');
+    }
+
+    function openModal(id) { $('#' + id).classList.add('active'); }
+    function closeModal(id) { $('#' + id).classList.remove('active'); }
+
+    let resetModalUserId = null;
+    let resetModalMode = null; // 'password' | 'secret'
+
+    function resetPassword(id) {
+      resetModalUserId = id;
+      resetModalMode = 'password';
+      $('#reset-modal-title').textContent = 'Reset Password';
+      $('#reset-modal-label').textContent = 'New temporary password';
+      $('#reset-modal-input').value = '';
+      openModal('reset-modal');
+    }
+
+    function resetSecret(id) {
+      resetModalUserId = id;
+      resetModalMode = 'secret';
+      $('#reset-modal-title').textContent = 'Reset Secret Access Code';
+      $('#reset-modal-label').textContent = 'New secret access code';
+      $('#reset-modal-input').value = '';
+      openModal('reset-modal');
+    }
+
+    async function submitResetModal() {
+      const value = $('#reset-modal-input').value;
+      if (!value || value.length < 6) return Toast.error('Must be at least 6 characters.');
+      const btn = $('#reset-modal-confirm');
+      setLoading(btn, true);
+      const res = resetModalMode === 'password'
+        ? await api.post('/admin/users/' + resetModalUserId + '/reset-password', { newPassword: value })
+        : await api.post('/admin/users/' + resetModalUserId + '/reset-secret', { newSecretCode: value });
+      setLoading(btn, false);
+      if (res.success) {
+        Toast.success(resetModalMode === 'password' ? 'Password reset successfully.' : 'Secret code reset successfully.');
+        closeModal('reset-modal');
+      } else {
+        Toast.error(res.message || 'Failed');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { loadStats(); });
+  </script>
+</body>
+</html>

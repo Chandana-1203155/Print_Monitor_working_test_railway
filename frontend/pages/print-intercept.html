@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Print Document</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-base); margin: 0; font-family: var(--font-body); }
+    .bg-grid { position: fixed; inset: 0; z-index: 0; background-image: linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px); background-size: 40px 40px; }
+    .container { position: relative; z-index: 1; width: 100%; max-width: 600px; padding: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow); }
+    .card h1 { font-family: var(--font-display); font-size: 22px; margin: 0 0 4px; }
+    .card .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
+    .file-info { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px; }
+    .file-icon { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, var(--accent), #6366f1); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .file-details { flex: 1; min-width: 0; }
+    .file-name { font-weight: 700; font-size: 14px; word-break: break-all; }
+    .file-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .status-bar { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.green { background: var(--success); }
+    .status-dot.yellow { background: #f59e0b; }
+    .status-dot.red { background: var(--danger); }
+    .status-dot.blue { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-control { width: 100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text-primary); font-family: inherit; font-size: 14px; box-sizing: border-box; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn { border: none; border-radius: 10px; padding: 12px 24px; cursor: pointer; font-weight: 600; font-size: 14px; width: auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    .btn-row { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; flex-wrap: wrap; }
+    .btn-row .btn { flex: 0 0 auto; }
+    .login-prompt { text-align: center; padding: 24px 0; }
+    .login-prompt p { color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; }
+    .enforcer-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(16,185,129,0.1); color: var(--success); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+    .error-msg { background: rgba(239,68,68,0.1); color: var(--danger); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+    .progress-bar { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; display: none; }
+    .progress-bar .fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="container">
+    <div class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+        <h1>🛡️ SecurePrint</h1>
+        <span class="enforcer-badge" id="enforcer-badge">● Protected</span>
+      </div>
+      <div class="subtitle">All printing is routed through SecurePrint for security and tracking.</div>
+
+      <!-- File Info -->
+      <div class="file-info" id="file-info">
+        <div class="file-icon" id="file-icon">📄</div>
+        <div class="file-details">
+          <div class="file-name" id="file-name">Loading file...</div>
+          <div class="file-meta" id="file-meta"></div>
+        </div>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="status-bar" id="status-bar">
+        <div class="status-dot blue" id="status-dot"></div>
+        <span id="status-text">Initializing...</span>
+      </div>
+      <div class="progress-bar" id="progress-bar"><div class="fill" id="progress-fill" style="width:0%"></div></div>
+
+      <!-- Error Display -->
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Login Prompt (shown if not authenticated) -->
+      <div id="login-section" style="display:none;">
+        <div class="login-prompt">
+          <p>You must sign in before printing. SecurePrint tracks all print activity.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email or Username</label>
+          <input class="form-control" id="login-identifier" placeholder="Enter your email or username" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-control" id="login-password" placeholder="Enter your password" autocomplete="current-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Admin Secret Access Code (if applicable)</label>
+          <input type="password" class="form-control" id="login-secret-code" placeholder="Required for Admin and Super Admin accounts" autocomplete="off" />
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+          <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Sign In & Continue</button>
+        </div>
+      </div>
+
+      <!-- Print Options (shown after authentication) -->
+      <div id="print-section" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Printer</label>
+          <select class="form-control" id="printer-select">
+            <option value="">Loading printers...</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Copies</label>
+            <input type="number" class="form-control" id="copies" value="1" min="1" max="100" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Page Range</label>
+            <input class="form-control" id="page-range" placeholder="All (e.g. 1-5, 8)" value="All" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Color</label>
+            <select class="form-control" id="color-mode">
+              <option value="color">Color</option>
+              <option value="mono">Black & White</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Sides</label>
+            <select class="form-control" id="duplex-mode">
+              <option value="">Single-sided</option>
+              <option value="long">Double-sided (Long Edge)</option>
+              <option value="short">Double-sided (Short Edge)</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="cancelPrint()">Cancel</button>
+          <button class="btn btn-primary" id="btn-print" onclick="doPrint()">🖨️ Print Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    let currentFile = null;
+    let pdfPath = null;
+    let currentUser = null;
+
+    const FILE_ICONS = {
+      pdf: '📕', word: '📘', excel: '📗', powerpoint: '📙',
+      image: '🖼️', text: '📝'
+    };
+
+    function formatSize(bytes) {
+      if (!bytes) return '—';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function setStatus(text, color) {
+      $('#status-text').textContent = text;
+      const dot = $('#status-dot');
+      dot.className = 'status-dot ' + color;
+    }
+
+    function showError(msg) {
+      const el = $('#error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideError() {
+      $('#error-msg').style.display = 'none';
+    }
+
+    function showProgress(show) {
+      $('#progress-bar').style.display = show ? 'block' : 'none';
+    }
+
+    function setProgress(pct) {
+      $('#progress-fill').style.width = pct + '%';
+    }
+
+    // ─── Initialize ───
+    (async function init() {
+      // 1. Get the file info
+      const urlParams = new URLSearchParams(window.location.search);
+      const fileParam = urlParams.get('file');
+
+      if (fileParam) {
+        const filePath = decodeURIComponent(fileParam);
+        try {
+          const stat = { name: filePath.split(/[\\/]/).pop(), path: filePath };
+          const pendingInfo = await electronAPI.getPendingFile();
+          currentFile = pendingInfo.success ? pendingInfo : {
+            success: true,
+            path: filePath,
+            name: stat.name,
+            size: 0,
+            type: filePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'unknown',
+            supported: true
+          };
+        } catch (e) {
+          currentFile = await electronAPI.getPendingFile();
+        }
+      } else {
+        currentFile = await electronAPI.getPendingFile();
+      }
+
+      if (!currentFile || !currentFile.success) {
+        setStatus('No file specified. Open a file with "Print with SecurePrint".', 'red');
+        return;
+      }
+
+      // Show file info
+      const icon = FILE_ICONS[currentFile.type] || '📄';
+      $('#file-icon').textContent = icon;
+      $('#file-name').textContent = currentFile.name;
+      $('#file-meta').textContent = `${(currentFile.type || 'unknown').toUpperCase()} • ${formatSize(currentFile.size)}`;
+      setStatus('File loaded — checking authentication...', 'yellow');
+
+      // 2. Check if user is logged in
+      currentUser = Auth.getUser();
+      const token = Auth.getToken();
+
+      if (!currentUser || !token) {
+        setStatus('Sign in required to print.', 'yellow');
+        $('#login-section').style.display = 'block';
+        return;
+      }
+
+      // 3. User is authenticated — prepare for printing
+      await prepareForPrinting();
+
+      // 4. Check enforcer status
+      try {
+        const enforcer = await electronAPI.getEnforcerStatus();
+        if (enforcer.success && enforcer.status.spoolerMonitorActive && enforcer.status.printerSubscriptionsActive) {
+          $('#enforcer-badge').textContent = '● Protected';
+        }
+      } catch (e) { /* ignore */ }
+    })();
+
+    // ─── Login ───
+    async function doLogin() {
+      hideError();
+      const identifier = $('#login-identifier').value.trim();
+      const password = $('#login-password').value;
+      const secretCode = $('#login-secret-code').value;
+      if (!identifier || !password) return showError('Enter your username or email and password.');
+
+      const btn = $('#btn-login');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      try {
+        const res = await api.post('/auth/login', {
+        identifier,
+        password,
+        ...(secretCode ? { secretCode } : {})
+        }, false);
+        if (res.success && res.token) {
+        Auth.save(res.token, res.user);
+        currentUser = res.user;
+        $('#login-section').style.display = 'none';
+        await prepareForPrinting();
+        } else {
+        showError(res.message || 'Login failed. Check your credentials.');
+        }
+      } catch (e) {
+        showError(e.message || 'Connection error. Make sure the SecurePrint server is reachable.');
+      } finally {
+        if ($('#login-section').style.display !== 'none') {
+        btn.disabled = false;
+        btn.textContent = 'Sign In & Continue';
+        }
+      }
+    }
+
+    // ─── Prepare for Printing ───
+    async function prepareForPrinting() {
+      setStatus('Converting file to PDF...', 'blue');
+      showProgress(true);
+      setProgress(30);
+
+      try {
+        // Convert file to PDF (if not already PDF)
+        if (currentFile.type !== 'pdf') {
+          setProgress(50);
+          const result = await electronAPI.convertFile(currentFile.path);
+          if (!result.success) {
+            setStatus('Conversion failed.', 'red');
+            showError('Could not convert file: ' + result.error);
+            showProgress(false);
+            return;
+          }
+          pdfPath = result.pdfPath;
+          setProgress(80);
+        } else {
+          pdfPath = currentFile.path;
+          setProgress(80);
+        }
+
+        // Get PDF info (page count)
+        try {
+          const pdfInfo = await electronAPI.getPdfInfo(pdfPath);
+          if (pdfInfo.success) {
+            $('#file-meta').textContent += ` • ${pdfInfo.pages} page${pdfInfo.pages !== 1 ? 's' : ''}`;
+          }
+        } catch (e) { /* ignore */ }
+
+        setProgress(90);
+
+        // Load printers
+        const printerResult = await electronAPI.getPrinters();
+        const select = $('#printer-select');
+        if (printerResult.success && printerResult.printers.length > 0) {
+          select.innerHTML = printerResult.printers.map(p =>
+            `<option value="${p.name}" ${p.isDefault ? 'selected' : ''}>${p.name}${p.isDefault ? ' (Default)' : ''}</option>`
+          ).join('');
+        } else {
+          select.innerHTML = '<option value="">No printers found</option>';
+        }
+
+        setProgress(100);
+        setStatus('Ready to print.', 'green');
+        showProgress(false);
+        $('#print-section').style.display = 'block';
+      } catch (e) {
+        setStatus('Error preparing file.', 'red');
+        showError(e.message || 'An unexpected error occurred.');
+        showProgress(false);
+      }
+    }
+
+    // ─── Print ───
+    async function doPrint() {
+      hideError();
+      const btn = $('#btn-print');
+      btn.disabled = true;
+      btn.textContent = 'Printing...';
+      setStatus('Sending to printer...', 'blue');
+
+      const printOptions = {
+        filePath: pdfPath || currentFile.path,
+        copies: parseInt($('#copies').value) || 1,
+        printer: $('#printer-select').value || undefined,
+        pageRange: $('#page-range').value || 'All',
+        monochrome: $('#color-mode').value === 'mono',
+        duplex: $('#duplex-mode').value || undefined
+      };
+
+      try {
+        const printPath = pdfPath || currentFile.path;
+        const pdfInfo = await electronAPI.getPdfInfo(printPath);
+        if (!pdfInfo.success || !Number.isInteger(Number(pdfInfo.pages)) || Number(pdfInfo.pages) < 1) {
+          throw new Error(pdfInfo.error || 'Could not determine the document page count, so the print cannot be logged accurately.');
+        }
+        printOptions.accessToken = Auth.getToken();
+        printOptions.logRecord = {
+          file_name: currentFile.name,
+          file_path: currentFile.path,
+          num_pages: Number(pdfInfo.pages),
+          page_range: printOptions.pageRange
+        };
+
+        const result = await electronAPI.printFile(printOptions);
+        if (result.success) {
+          if (result.logStatus === 'recorded') {
+            setStatus('Print job sent and recorded centrally.', 'green');
+          } else if (result.logStatus === 'recovery-required') {
+            setStatus('Print job sent; its log requires recovery.', 'yellow');
+            showError('The print succeeded, but SecurePrint could not finalize its durable log. Keep this application data and contact your administrator.' + (result.logError ? ` ${result.logError}` : ''));
+          } else {
+            setStatus('Print job sent; central log queued for retry.', 'yellow');
+            showError(`Print succeeded, but the central log is queued for retry.${result.logError ? ` ${result.logError}` : ''}`);
+          }
+
+          btn.textContent = '✓ Sent to Printer';
+          setTimeout(() => {
+            electronAPI.clearPendingFile();
+            electronAPI.navigate('faculty');
+          }, 2000);
+        } else {
+          setStatus('Print failed.', 'red');
+          showError('Printer error: ' + result.error);
+          btn.disabled = false;
+          btn.textContent = '🖨️ Retry Print';
+        }
+      } catch (e) {
+        setStatus('Print error.', 'red');
+        showError(e.message);
+        btn.disabled = false;
+        btn.textContent = '🖨️ Retry Print';
+      }
+    }
+
+    function cancelPrint() {
+      electronAPI.clearPendingFile();
+      const user = Auth.getUser();
+      if (user && user.role === 'faculty') electronAPI.navigate('faculty');
+      else if (user && user.role === 'admin') electronAPI.navigate('admin');
+      else if (user && user.role === 'superadmin') electronAPI.navigate('super-admin');
+      else electronAPI.navigate('login');
+    }
+
+    // Handle Enter key on login fields
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if ($('#login-section').style.display !== 'none') doLogin();
+        else if ($('#print-section').style.display !== 'none') doPrint();
+      }
+    });
+  </script>
+</body>
+</html>

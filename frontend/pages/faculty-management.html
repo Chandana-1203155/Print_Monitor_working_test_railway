@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Faculty Management</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    :root { --sidebar-w: 260px; }
+    body { display: flex; margin: 0; background: var(--bg-base); color: var(--text-primary); font-family: var(--font-body); }
+    .sidebar { width: var(--sidebar-w); background: var(--bg-card); border-right: 1px solid var(--border); min-height: 100vh; padding: 24px 16px; position: fixed; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; padding-left: 8px; }
+    .brand-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #6366f1); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .brand h1 { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .brand span { color: var(--accent); }
+    .nav { display: flex; flex-direction: column; gap: 6px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--radius); color: var(--text-secondary); background: transparent; border: none; cursor: pointer; font-weight: 500; font-size: 14px; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active { background: var(--accent); color: white; }
+    .main { margin-left: var(--sidebar-w); flex: 1; padding: 24px 30px; min-height: 100vh; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .page-title { font-family: var(--font-display); font-size: 26px; font-weight: 800; }
+    .page-subtitle { color: var(--text-secondary); font-size: 14px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .card h3 { font-family: var(--font-display); font-size: 16px; margin-bottom: 16px; }
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+    .form-control { background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text-primary); font-family: inherit; }
+    .btn { border: none; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    .badge { padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(16,185,129,0.1); color: var(--success); }
+    .badge-red { background: rgba(239,68,68,0.1); color: var(--danger); }
+    .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+    .actions { display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div>
+      <div class="brand"><div class="brand-icon">🎓</div><h1>Secure<span>Print</span></h1></div>
+      <nav class="nav">
+        <button class="nav-item" onclick="electronAPI.navigate('admin')">← Admin Dashboard</button>
+      </nav>
+    </div>
+    <button class="nav-item" onclick="Auth.logout()">🚪 Logout</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Faculty Management</div>
+        <div class="page-subtitle">Create, activate and reset faculty accounts</div>
+      </div>
+      <div id="user-info" class="text-muted" style="font-size:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Add New Faculty</h3>
+      <form id="add-faculty-form" onsubmit="event.preventDefault(); createFaculty();" class="form-grid" style="align-items:end;">
+        <div class="form-group"><label class="form-label">Faculty Name</label><input class="form-control" id="fac-name" required /></div>
+        <div class="form-group"><label class="form-label">Username</label><input class="form-control" id="fac-username" /></div>
+        <div class="form-group"><label class="form-label">Employee ID</label><input class="form-control" id="fac-empid" /></div>
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="fac-email" required /></div>
+        <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="fac-dept" /></div>
+        <div class="form-group"><label class="form-label">Temporary Password</label><input type="password" class="form-control" id="fac-password" required minlength="6" /></div>
+        <div class="form-group" style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Create Faculty</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Bulk Add Faculty (CSV)</h3>
+      <p class="text-muted" style="font-size:13px;margin-bottom:12px;">
+        For adding many faculty at once: upload a CSV with columns
+        <code>name,email,password,username,department,employee_id</code> (username, department and employee_id are optional).
+        Each row is created just like the form above.
+      </p>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input type="file" accept=".csv" class="form-control" id="bulk-csv-file" style="width:auto;" />
+        <button class="btn btn-primary" onclick="importFacultyCsv()">Upload &amp; Create</button>
+        <span class="text-muted" id="bulk-status" style="font-size:13px;"></span>
+      </div>
+      <div id="bulk-results" style="margin-top:12px;font-size:13px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Faculty Members</h3>
+      <div class="table-wrapper">
+        <table><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Department</th><th>Employee ID</th><th>Status</th><th>Actions</th></tr></thead><tbody id="faculty-list"><tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Loading...</td></tr></tbody></table>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="reset-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="card-title">Reset Password</h3>
+        <button class="modal-close" onclick="closeModal('reset-modal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">New temporary password</label>
+        <input type="password" class="form-control" id="reset-modal-input" minlength="6" placeholder="Minimum 6 characters" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('reset-modal')">Cancel</button>
+        <button class="btn btn-primary" id="reset-modal-confirm" onclick="submitResetModal()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    const currentUser = Auth.requireAuth(['admin','superadmin']);
+    if (!currentUser) { Auth.logout(); }
+    $('#user-info').textContent = currentUser.name + ' (' + currentUser.role + (currentUser.department ? ' — ' + currentUser.department : '') + ')';
+    // Pre-fill department for admin's own department
+    if (currentUser.department) {
+      const deptField = $('#fac-dept');
+      if (deptField) { deptField.value = currentUser.department; }
+    }
+
+    async function loadFaculty() {
+      const res = await api.get('/admin/users');
+      const list = (res.users || []).filter(u => u.role === 'faculty');
+      const body = $('#faculty-list');
+      body.innerHTML = list.map(u => `
+        <tr>
+          <td><div style="display:flex;align-items:center;gap:8px;"><div class="user-avatar">${u.name[0]}</div><div>${u.name}</div></div></td>
+          <td>${u.username || '—'}</td>
+          <td>${u.email}</td>
+          <td>${u.department || '—'}</td>
+          <td>${u.employee_id || '—'}</td>
+          <td>${u.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>'}</td>
+          <td class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="toggleUser(${u.id})">Toggle</button>
+            <button class="btn btn-ghost btn-sm" onclick="resetPassword(${u.id})">Reset Pwd</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function createFaculty() {
+      const payload = {
+        name: $('#fac-name').value,
+        username: $('#fac-username').value || null,
+        email: $('#fac-email').value,
+        password: $('#fac-password').value,
+        department: $('#fac-dept').value,
+        employee_id: $('#fac-empid').value || null,
+        role: 'faculty'
+      };
+      const res = await api.post('/admin/users', payload);
+      if (res.success) { Toast.success('Created faculty account'); $('#add-faculty-form').reset(); loadFaculty(); }
+      else { Toast.error(res.message || 'Failed to create faculty'); }
+    }
+
+    async function toggleUser(id) {
+      const res = await api.put('/admin/users/' + id + '/toggle');
+      if (res.success) { Toast.success('Status updated'); loadFaculty(); }
+      else Toast.error(res.message || 'Failed');
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Delete this account? This cannot be undone.')) return;
+      const res = await api.delete('/admin/users/' + id);
+      if (res.success) { Toast.success('Deleted'); loadFaculty(); }
+      else Toast.error(res.message || 'Failed');
+    }
+
+    function openModal(id) { $('#' + id).classList.add('active'); }
+    function closeModal(id) { $('#' + id).classList.remove('active'); }
+
+    let resetModalUserId = null;
+
+    function resetPassword(id) {
+      resetModalUserId = id;
+      $('#reset-modal-input').value = '';
+      openModal('reset-modal');
+    }
+
+    async function submitResetModal() {
+      const pwd = $('#reset-modal-input').value;
+      if (!pwd || pwd.length < 6) return Toast.error('Password must be at least 6 characters.');
+      const btn = $('#reset-modal-confirm');
+      setLoading(btn, true);
+      const res = await api.post('/admin/users/' + resetModalUserId + '/reset-password', { newPassword: pwd });
+      setLoading(btn, false);
+      if (res.success) { Toast.success('Password reset successfully.'); closeModal('reset-modal'); }
+      else Toast.error(res.message || 'Failed');
+    }
+
+    // ---- Bulk CSV import ----
+    function parseCsv(text) {
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      return lines.slice(1).map(line => {
+        const cells = line.split(',').map(c => c.trim());
+        const row = {};
+        headers.forEach((h, i) => { row[h] = cells[i] || ''; });
+        return row;
+      });
+    }
+
+    async function importFacultyCsv() {
+      const fileInput = $('#bulk-csv-file');
+      const file = fileInput.files[0];
+      const resultsEl = $('#bulk-results');
+      const statusEl = $('#bulk-status');
+      if (!file) { Toast.error('Choose a CSV file first.'); return; }
+
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length === 0) { Toast.error('No valid rows found in CSV.'); return; }
+
+      let created = 0, failed = 0;
+      const failures = [];
+      statusEl.textContent = `Processing 0/${rows.length}...`;
+      resultsEl.innerHTML = '';
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        statusEl.textContent = `Processing ${i + 1}/${rows.length}...`;
+        if (!r.name || !r.email || !r.password) {
+          failed++; failures.push(`Row ${i + 2}: missing name, email or password`); continue;
+        }
+        const res = await api.post('/admin/users', {
+          name: r.name,
+          username: r.username || null,
+          email: r.email,
+          password: r.password,
+          department: r.department || null,
+          employee_id: r.employee_id || null,
+          role: 'faculty'
+        });
+        if (res.success) created++;
+        else { failed++; failures.push(`Row ${i + 2} (${r.email}): ${res.message || 'failed'}`); }
+      }
+
+      statusEl.textContent = `Done: ${created} created, ${failed} failed.`;
+      resultsEl.innerHTML = failures.length
+        ? '<div style="color:var(--danger);">' + failures.map(f => '<div>⚠️ ' + f + '</div>').join('') + '</div>'
+        : '';
+      Toast.success(`Bulk import finished: ${created} created, ${failed} failed.`);
+      fileInput.value = '';
+      loadFaculty();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => { loadFaculty(); });
+  </script>
+</body>
+</html>

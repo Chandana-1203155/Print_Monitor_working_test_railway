@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Admin Portal</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-base); overflow: hidden; }
+    .bg-grid { position: fixed; inset: 0; z-index: 0; background-image: linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px); background-size: 40px 40px; }
+    .bg-glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%); top: -200px; right: -100px; z-index: 0; pointer-events: none; }
+    .auth-container { position: relative; z-index: 1; width: 100%; max-width: 460px; padding: 20px; }
+    .auth-logo { text-align: center; margin-bottom: 30px; }
+    .auth-logo .logo-icon { width: 64px; height: 64px; background: linear-gradient(135deg, var(--accent), #6366f1); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; box-shadow: 0 8px 32px rgba(59,130,246,0.35); }
+    .auth-logo h1 { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    .auth-logo h1 span { color: var(--accent); }
+    .auth-logo p { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+    .auth-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; box-shadow: var(--shadow), var(--shadow-accent); }
+    .auth-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .auth-tab { flex: 1; padding: 10px; border-radius: var(--radius); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; font-weight: 500; }
+    .auth-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+    .auth-footer { text-align: center; margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+    .auth-footer a { color: var(--accent); text-decoration: none; cursor: pointer; }
+    .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .top-back { position: absolute; top: 20px; left: 20px; z-index: 2; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <button class="top-back btn btn-ghost btn-sm" onclick="electronAPI.navigate('login')">← Faculty Login</button>
+
+  <div class="auth-container">
+    <div class="auth-logo">
+      <div class="logo-icon">🛡️</div>
+      <h1>Admin <span>Portal</span></h1>
+      <p>SecurePrint Administrative Access</p>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-admin" onclick="switchTab('admin')">Admin</button>
+        <button class="auth-tab" id="tab-super" onclick="switchTab('superadmin')">Super Admin</button>
+      </div>
+
+      <div id="login-alert"></div>
+
+      <div class="form-group">
+        <label class="form-label">Username or Email</label>
+        <input type="text" id="identifier" class="form-control" placeholder="Enter username or email" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Enter password" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Secret Access Code</label>
+        <input type="password" id="secretCode" class="form-control" placeholder="Enter secret access code" />
+        <p class="form-hint">Provided during account creation or reset by a super admin.</p>
+      </div>
+
+      <button class="btn btn-primary btn-block btn-lg" id="login-btn" onclick="handleLogin()">Sign In</button>
+
+      <div class="auth-footer" style="margin-top:18px;">
+        <a onclick="electronAPI.navigate('forgot-secret')">Forgot Secret Code?</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    let selectedRole = 'admin';
+
+    function switchTab(role) {
+      selectedRole = role;
+      $$('.auth-tab').forEach(t => t.classList.remove('active'));
+      $('#tab-' + (role === 'superadmin' ? 'super' : 'admin')).classList.add('active');
+    }
+
+    function showAlert(msg) {
+      $('#login-alert').innerHTML = '<div class="alert alert-error"><span>✕</span><span>' + msg + '</span></div>';
+    }
+
+    async function handleLogin() {
+      const btn = $('#login-btn');
+      const identifier = $('#identifier').value.trim();
+      const password = $('#password').value;
+      const secretCode = $('#secretCode').value;
+
+      if (!identifier || !password || !secretCode) return showAlert('All fields are required.');
+
+      setLoading(btn, true);
+      try {
+        const res = await api.post('/auth/login', { identifier, password, role: selectedRole, secretCode }, false);
+        if (res.success) {
+          Auth.save(res.token, res.user);
+          resetInactivityTimer();
+          Toast.success('Welcome, ' + res.user.name);
+          if (res.forcePasswordChange) {
+            electronAPI.navigate('change-password');
+          } else {
+            electronAPI.navigate(res.user.role === 'superadmin' ? 'super-admin' : 'admin');
+          }
+        } else {
+          showAlert(res.message || 'Login failed.');
+        }
+      } catch (e) {
+        showAlert('Cannot connect to server.');
+      }
+      setLoading(btn, false);
+    }
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
+  </script>
+</body>
+</html>

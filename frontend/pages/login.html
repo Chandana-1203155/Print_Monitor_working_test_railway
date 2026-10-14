@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Login</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-base); overflow: hidden; }
+
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .bg-glow {
+      position: fixed; width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      top: -200px; right: -100px; z-index: 0; pointer-events: none;
+    }
+    .bg-glow2 {
+      position: fixed; width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
+      bottom: -100px; left: -100px; z-index: 0; pointer-events: none;
+    }
+
+    .auth-container {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 440px; padding: 20px;
+    }
+
+    .auth-logo {
+      text-align: center; margin-bottom: 36px;
+    }
+    .auth-logo .logo-icon {
+      width: 64px; height: 64px; background: linear-gradient(135deg, var(--accent), #6366f1);
+      border-radius: 18px; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px; font-size: 28px; box-shadow: 0 8px 32px rgba(59,130,246,0.35);
+    }
+    .auth-logo h1 { font-family: var(--font-display); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    .auth-logo h1 span { color: var(--accent); }
+    .auth-logo p { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+
+    .auth-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow), var(--shadow-accent);
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 28px; background: var(--bg-input); border-radius: var(--radius); padding: 4px; }
+    .auth-tab {
+      flex: 1; padding: 8px; text-align: center; border-radius: 8px;
+      cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted);
+      transition: all 0.2s; border: none; background: none;
+    }
+    .auth-tab.active { background: var(--bg-card); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+    .form-section { display: none; }
+    .form-section.active { display: block; }
+
+    .input-group { position: relative; }
+    .input-group .form-control { padding-right: 40px; }
+    .input-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;
+    }
+
+    .role-selector { display: flex; gap: 8px; margin-bottom: 18px; }
+    .role-option {
+      flex: 1; padding: 10px; border-radius: var(--radius); border: 1px solid var(--border);
+      text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-input);
+    }
+    .role-option.selected { border-color: var(--accent); background: rgba(59,130,246,0.1); color: var(--accent); }
+    .role-option .role-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+    .role-option .role-label { font-size: 12px; font-weight: 600; }
+
+    .admin-code-field { display: none; }
+    .admin-code-field.visible { display: block; }
+
+    .divider-text {
+      text-align: center; color: var(--text-muted); font-size: 12px; margin: 20px 0;
+      position: relative;
+    }
+    .divider-text::before, .divider-text::after {
+      content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--border);
+    }
+    .divider-text::before { left: 0; }
+    .divider-text::after { right: 0; }
+
+    .auth-footer { text-align: center; margin-top: 20px; font-size: 12px; color: var(--text-muted); }
+    .auth-footer a { color: var(--accent); text-decoration: none; cursor: pointer; }
+
+    .strength-bar { height: 4px; background: var(--bg-input); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+    .strength-fill { height: 100%; border-radius: 2px; transition: all 0.3s; width: 0; }
+    .strength-text { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="bg-glow2"></div>
+
+  <button class="admin-login-btn" onclick="electronAPI.navigate('admin-portal')">🛡️ Admin Login</button>
+  <style>
+    .admin-login-btn {
+      position: fixed; top: 20px; right: 20px; z-index: 10;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: white; border: none; border-radius: 14px;
+      padding: 14px 32px; font-size: 16px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.3px;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+      transition: all 0.3s ease;
+    }
+    .admin-login-btn:hover {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(37, 99, 235, 0.55);
+    }
+    .admin-login-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    }
+  </style>
+
+  <div class="auth-container">
+    <div class="auth-logo">
+      <div class="logo-icon">🖨️</div>
+      <h1>Secure<span>Print</span></h1>
+      <p>Academic Print Monitoring System</p>
+    </div>
+
+    <div class="auth-card">
+      <h2 style="margin-bottom: 4px; font-family: var(--font-display); font-size: 20px;">Faculty Sign In</h2>
+      <p class="text-muted" style="margin-bottom: 24px; font-size: 13px;">Enter your faculty credentials to access secure printing.</p>
+
+      <div id="login-alert"></div>
+      <div class="form-group">
+        <label class="form-label">Email or Username</label>
+        <input type="text" id="login-identifier" class="form-control" placeholder="you@institution.edu" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <input type="password" id="login-password" class="form-control" placeholder="Enter your password" autocomplete="current-password" />
+          <button class="input-toggle" onclick="togglePass('login-password', this)">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" id="login-btn" onclick="handleLogin()">Sign In</button>
+      <div class="auth-footer" style="margin-top:16px;">
+        <a href="forgot-password.html">Forgot Password?</a>
+      </div>
+    </div>
+
+    <p class="text-center text-muted text-sm" style="margin-top:20px;">
+      🔒 Secured with JWT Authentication &nbsp;·&nbsp; v1.0
+    </p>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (Auth.isLoggedIn()) {
+        const user = Auth.getUser();
+        if (user.role === 'superadmin') electronAPI.navigate('super-admin');
+        else if (user.role === 'admin') electronAPI.navigate('admin');
+        else electronAPI.navigate('faculty');
+      }
+      resetInactivityTimer();
+    });
+
+    function showAlert(msg) {
+      $('#login-alert').innerHTML = '<div class="alert alert-error"><span>✕</span><span>' + msg + '</span></div>';
+    }
+
+    function togglePass(id, btn) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.type = el.type === 'password' ? 'text' : 'password';
+      btn.textContent = el.type === 'password' ? '👁' : '🙈';
+    }
+
+    async function handleLogin() {
+      const btn = $('#login-btn');
+      const identifier = $('#login-identifier').value.trim();
+      const password = $('#login-password').value;
+
+      if (!identifier || !password) { showAlert('Please fill in all fields.'); return; }
+
+      setLoading(btn, true);
+      try {
+        const res = await api.post('/auth/login', { identifier, password }, false);
+        if (res.success) {
+          Auth.save(res.token, res.user);
+          Toast.success('Welcome back, ' + res.user.name + '!');
+          resetInactivityTimer();
+          if (res.forcePasswordChange) {
+            electronAPI.navigate('change-password');
+          } else {
+            const role = res.user.role;
+            electronAPI.navigate(role === 'superadmin' ? 'super-admin' : role === 'admin' ? 'admin' : 'faculty');
+          }
+        } else {
+          showAlert(res.message || 'Login failed.');
+        }
+      } catch (e) {
+        showAlert('Cannot connect to server. Make sure the backend is running.');
+      }
+      setLoading(btn, false);
+    }
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
+  </script>
+</body>
+</html>

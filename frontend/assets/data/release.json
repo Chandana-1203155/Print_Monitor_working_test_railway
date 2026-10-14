@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2026-07-26",
+  "win": {
+    "file": "../assets/downloads/SecurePrintClient-1.0.0-Setup.exe",
+    "size": "Calculating after build...",
+    "sha256": "Generate after build with: certutil -hashfile filename SHA256"
+  },
+  "mac": {
+    "file": "../assets/downloads/SecurePrintClient-1.0.0.dmg",
+    "size": "Calculating after build...",
+    "sha256": "Generate after build with: shasum -a 256 filename"
+  },
+  "linux": {
+    "file": "../assets/downloads/secureprintclient_1.0.0_amd64.deb",
+    "size": "Calculating after build...",
+    "sha256": "Generate after build with: sha256sum filename"
+  }
+}

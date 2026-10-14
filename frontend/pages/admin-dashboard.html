@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SecurePrint — Admin Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .user-row td { vertical-align: middle; }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: white; flex-shrink: 0;
+    }
+
+    .chart-container { position: relative; height: 220px; }
+
+    .filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .filter-bar select, .filter-bar input { width: auto; min-width: 140px; }
+
+    .top-user-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .top-user-item:last-child { border-bottom: none; }
+    .top-rank { font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--text-muted); width: 28px; }
+    .top-rank.gold { color: #f59e0b; }
+    .top-rank.silver { color: #94a3b8; }
+    .top-rank.bronze { color: #b45309; }
+
+    .modal-lg { max-width: 640px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>🖨️ Secure<span>Print</span></h2>
+      <div class="text-muted text-sm" style="margin-top:4px;">Admin Panel</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebar-name">Admin</div>
+      <div class="sidebar-user-role" style="color:var(--accent);">Administrator</div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" id="nav-overview" onclick="showSection('overview')"><span class="nav-icon">📊</span> Overview</button>
+      <button class="nav-item" id="nav-logs" onclick="showSection('logs')"><span class="nav-icon">📋</span> Print Logs</button>
+      <button class="nav-item" id="nav-faculty" onclick="showSection('faculty')"><span class="nav-icon">📈</span> Faculty Report</button>
+      <button class="nav-item" id="nav-faculty-mgmt" onclick="electronAPI.navigate('faculty-management')"><span class="nav-icon">🎓</span> Faculty Management</button>
+      <button class="nav-item" id="nav-users" onclick="showSection('users')"><span class="nav-icon">👥</span> Manage Users</button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-block btn-sm" onclick="Auth.logout()">⬅ Sign Out</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- ====== OVERVIEW SECTION ====== -->
+    <div class="section active" id="overview-section">
+      <div class="page-header flex-between">
+        <div>
+          <h1 class="page-title">Dashboard Overview</h1>
+          <p class="page-subtitle" id="today-date"></p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Today's Sheets</div><div class="stat-value text-accent" id="s-today">—</div><div class="stat-sub">printed today</div></div>
+        <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="s-month">—</div><div class="stat-sub">total sheets</div></div>
+        <div class="stat-card"><div class="stat-label">Active Faculty</div><div class="stat-value" id="s-faculty">—</div><div class="stat-sub">registered users</div></div>
+        <div class="stat-card"><div class="stat-label">Active Today</div><div class="stat-value text-success" id="s-active">—</div><div class="stat-sub">users printed today</div></div>
+      </div>
+
+      <div class="grid-2" style="margin-top:0;">
+        <div class="card">
+          <div class="card-header"><span class="card-title">📅 Daily Usage (Last 7 Days)</span></div>
+          <div class="chart-container"><canvas id="dailyChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">🏆 Top Printers This Month</span></div>
+          <div id="top-users-list"><div class="text-muted text-center" style="padding:20px;">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== LOGS SECTION ====== -->
+    <div class="section" id="logs-section">
+      <div class="page-header">
+        <h1 class="page-title">All Print Logs</h1>
+        <p class="page-subtitle">Complete record of all print activities</p>
+      </div>
+
+      <div class="filter-bar">
+        <select class="form-control" id="log-month" onchange="loadLogs()">
+          <option value="">All Months</option>
+        </select>
+        <select class="form-control" id="log-year" onchange="loadLogs()">
+          <option value="">All Years</option>
+        </select>
+        <select class="form-control" id="log-status" onchange="loadLogs()">
+          <option value="">All Status</option>
+          <option value="success">Success</option>
+          <option value="failed">Failed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadLogs()">🔍 Filter</button>
+        <button class="btn btn-success btn-sm" onclick="exportReport()">⬇ Export Excel</button>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Faculty</th><th>Dept</th><th>File</th><th>Copies</th><th>Sheets</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody id="logs-body">
+              <tr><td colspan="8" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex-between" style="padding:14px 20px; border-top:1px solid var(--border);">
+          <span class="text-muted text-sm" id="logs-info"></span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" id="logs-prev" onclick="changeLogsPage(-1)">← Prev</button>
+            <button class="btn btn-ghost btn-sm" id="logs-next" onclick="changeLogsPage(1)">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== FACULTY REPORT SECTION ====== -->
+    <div class="section" id="faculty-section">
+      <div class="page-header flex-between">
+        <div>
+          <h1 class="page-title">Faculty Report</h1>
+          <p class="page-subtitle">Monthly print summary per faculty member</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <select class="form-control" id="rep-month" style="width:auto;"></select>
+          <select class="form-control" id="rep-year" style="width:auto;"></select>
+          <button class="btn btn-ghost btn-sm" onclick="loadFacultyReport()">🔍 View</button>
+          <button class="btn btn-success btn-sm" onclick="exportReport()">⬇ Excel</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Faculty</th><th>Emp ID</th><th>Department</th><th title="Number of prints submitted this month (includes successful, failed and cancelled)">Number of Prints ℹ️</th><th>Sheets Used</th></tr>
+            </thead>
+            <tbody id="faculty-body">
+              <tr><td colspan="6" class="text-center text-muted" style="padding:24px;">Select month and click View</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== REPORT HISTORY SECTION ====== -->
+    <div class="section" id="reports-section">
+      <div class="page-header flex-between">
+        <div>
+          <h1 class="page-title">Report History</h1>
+          <p class="page-subtitle">Previously generated Excel reports stored in the database</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="text" class="form-control" id="report-search" placeholder="Search reports..." oninput="loadReportHistory()" style="min-width:220px;" />
+          <select class="form-control" id="report-month" onchange="loadReportHistory()" style="width:auto;"></select>
+          <select class="form-control" id="report-year" onchange="loadReportHistory()" style="width:auto;"></select>
+          <button class="btn btn-ghost btn-sm" onclick="loadReportHistory()">🔍 Search</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Report Name</th><th>Generated By</th><th>Generated Date</th><th>Month</th><th>Year</th><th>File Size</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="reports-body">
+              <tr><td colspan="8" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== USERS SECTION ====== -->
+    <div class="section" id="users-section">
+      <div class="page-header flex-between">
+        <div>
+          <h1 class="page-title">Manage Users</h1>
+          <p class="page-subtitle">Manage faculty accounts</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="form-control" id="user-search" placeholder="Search name or email..." oninput="filterUsers()" style="padding-left:32px;width:220px;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>User</th><th>Emp ID</th><th>Department</th><th>Role</th><th>Last Login</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="users-body">
+              <tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 class="card-title">✏️ Edit User</h3>
+      <button class="modal-close" onclick="closeModal('edit-modal')">✕</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input type="text" id="edit-name" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Employee ID</label>
+        <input type="text" id="edit-empid" class="form-control" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Department</label>
+      <select id="edit-dept" class="form-control">
+        <option value="">Select Department</option>
+        <option>Computer Science</option><option>Information Technology</option>
+        <option>Electronics & Communication</option><option>Mechanical Engineering</option>
+        <option>Civil Engineering</option><option>Mathematics</option>
+        <option>Physics</option><option>Chemistry</option>
+        <option>Management</option><option>Administration</option>
+      </select>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('edit-modal')">Cancel</button>
+      <button class="btn btn-primary" id="edit-save-btn" onclick="saveUserEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="card-title">🗑️ Delete User</h3>
+      <button class="modal-close" onclick="closeModal('delete-modal')">✕</button>
+    </div>
+    <div class="alert alert-error" style="margin:0 0 16px;">
+      ⚠️ This will permanently delete the user and ALL their print logs. This cannot be undone.
+    </div>
+    <p>Are you sure you want to delete <strong id="delete-name"></strong>?</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="btn btn-danger" id="delete-confirm-btn" onclick="confirmDelete()">Delete User</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+  let currentAdmin = null;
+  let allUsers = [];
+  let logsPage = 1;
+  let editingUserId = null;
+  let deletingUserId = null;
+  let dailyChart = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    currentAdmin = Auth.requireAuth(['admin','superadmin']);
+    if (!currentAdmin) return;
+    if (currentAdmin.role === 'superadmin') { electronAPI.navigate('super-admin'); return; }
+    $('#sidebar-name').textContent = currentAdmin.name;
+    $('#today-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    resetInactivityTimer();
+    populateMonthYearSelects();
+    await loadDashboard();
+  });
+
+  function populateMonthYearSelects() {
+    const now = new Date();
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthSelects = ['#log-month','#rep-month','#report-month'];
+    monthSelects.forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      const hasAll = sel === '#log-month';
+      if (hasAll) el.innerHTML = '<option value="">All Months</option>';
+      else el.innerHTML = '';
+      months.forEach((m, i) => {
+        const opt = document.createElement('option');
+        opt.value = i + 1;
+        opt.textContent = m;
+        if (i + 1 === now.getMonth() + 1) opt.selected = true;
+        el.appendChild(opt);
+      });
+    });
+    const yearSelects = ['#log-year','#rep-year','#report-year'];
+    yearSelects.forEach(sel => {
+      const el = $(sel);
+      if (!el) return;
+      const hasAll = sel === '#log-year';
+      if (hasAll) el.innerHTML = '<option value="">All Years</option>';
+      else el.innerHTML = '';
+      for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y === now.getFullYear()) opt.selected = true;
+        el.appendChild(opt);
+      }
+    });
+  }
+
+  function showSection(section) {
+    $$('.section').forEach(s => s.classList.remove('active'));
+    $(`#${section}-section`).classList.add('active');
+    $$('.nav-item').forEach(n => n.classList.remove('active'));
+    $(`#nav-${section}`).classList.add('active');
+    if (section === 'logs') loadLogs();
+    if (section === 'users') loadUsers();
+    if (section === 'faculty') loadFacultyReport();
+    if (section === 'reports') loadReportHistory();
+    if (section === 'overview') loadDashboard();
+  }
+
+  async function loadDashboard() {
+    const res = await api.get('/print/admin/dashboard');
+    if (!res.success) { Toast.error('Failed to load dashboard'); return; }
+    const s = res.stats;
+    $('#s-today').textContent = s.todaySheets;
+    $('#s-month').textContent = s.monthSheets;
+    $('#s-faculty').textContent = s.totalFaculty;
+    $('#s-active').textContent = s.activeToday;
+
+    // Daily chart
+    const labels = s.dailyTrend.map(d => new Date(d.date).toLocaleDateString('en-IN', {day:'2-digit', month:'short'}));
+    const data = s.dailyTrend.map(d => d.sheets);
+    if (dailyChart) dailyChart.destroy();
+    const ctx = $('#dailyChart').getContext('2d');
+    dailyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Sheets Printed',
+          data,
+          backgroundColor: 'rgba(59,130,246,0.6)',
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
+        }
+      }
+    });
+
+    // Top users
+    const rankSymbols = ['🥇','🥈','🥉','4','5'];
+    const rankClasses = ['gold','silver','bronze','',''];
+    const list = $('#top-users-list');
+    if (!s.topUsers || s.topUsers.length === 0) {
+      list.innerHTML = '<div class="text-muted text-center" style="padding:20px;">No data for this month</div>';
+    } else {
+      list.innerHTML = s.topUsers.map((u, i) => `
+        <div class="top-user-item">
+          <div class="top-rank ${rankClasses[i]}">${rankSymbols[i]}</div>
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:13px;">${u.user?.name || 'Unknown'}</div>
+            <div class="text-muted text-sm">${u.user?.department || '—'}</div>
+          </div>
+          <div style="font-family:var(--font-display);font-size:18px;font-weight:800;">${u.total}</div>
+          <div class="text-muted text-sm" style="margin-left:4px;">sheets</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  async function loadLogs() {
+    const month = $('#log-month').value;
+    const year = $('#log-year').value;
+    const status = $('#log-status').value;
+    let url = `/print/admin/all-logs?page=${logsPage}&limit=50`;
+    if (month) url += `&month=${month}`;
+    if (year) url += `&year=${year}`;
+    if (status) url += `&status=${status}`;
+
+    const res = await api.get(url);
+    const body = $('#logs-body');
+    if (!res.success || res.logs.length === 0) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:24px;">No logs found for selected filters.</td></tr>';
+      return;
+    }
+    const sb = s => s === 'success' ? '<span class="badge badge-green">✓ Success</span>' : s === 'failed' ? '<span class="badge badge-red">✕ Failed</span>' : '<span class="badge badge-amber">Cancelled</span>';
+    body.innerHTML = res.logs.map((l, i) => `
+      <tr class="user-row">
+        <td>${(logsPage - 1) * 50 + i + 1}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;"><div class="user-avatar">${(l.user?.name||'?')[0]}</div><div><div style="font-weight:500;font-size:13px;">${l.user?.name||'N/A'}</div><div class="text-muted text-sm">${l.user?.email||''}</div></div></div></td>
+        <td>${l.user?.department||'—'}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.file_name}">${l.file_name}</td>
+        <td>${l.copies}</td>
+        <td><strong>${l.total_sheets}</strong></td>
+        <td>${sb(l.status)}</td>
+        <td>${formatDate(l.created_at)}</td>
+      </tr>
+    `).join('');
+    $('#logs-info').textContent = `${res.total} total records`;
+    $('#logs-prev').disabled = logsPage <= 1;
+    $('#logs-next').disabled = logsPage >= res.pages;
+  }
+
+  function changeLogsPage(d) { logsPage += d; if (logsPage < 1) logsPage = 1; loadLogs(); }
+
+  async function loadFacultyReport() {
+    const month = $('#rep-month').value;
+    const year = $('#rep-year').value;
+    const res = await api.get(`/print/admin/faculty-report?month=${month}&year=${year}`);
+    const body = $('#faculty-body');
+    if (!res.success || res.report.length === 0) {
+      body.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:24px;">No data found.</td></tr>';
+      return;
+    }
+    body.innerHTML = res.report.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><div style="display:flex;align-items:center;gap:8px;"><div class="user-avatar">${r.name[0]}</div><div><div style="font-weight:500;">${r.name}</div><div class="text-muted text-sm">${r.email}</div></div></div></td>
+        <td>${r.employee_id || '—'}</td>
+        <td>${r.department || '—'}</td>
+        <td>${r.printCount}</td>
+        <td><strong>${r.totalSheets}</strong></td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadReportHistory() {
+    const month = $('#report-month').value;
+    const year = $('#report-year').value;
+    const search = $('#report-search').value.trim();
+    const body = $('#reports-body');
+    try {
+      const res = await api.get(`/admin/reports?month=${month || ''}&year=${year || ''}&search=${encodeURIComponent(search)}`);
+      if (!res.success || !res.reports.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:24px;">No reports found.</td></tr>';
+        return;
+      }
+      body.innerHTML = res.reports.map((report, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${report.report_name}</td>
+          <td>${report.generated_by || 'Unknown'}</td>
+          <td>${formatDate(report.generated_at)}</td>
+          <td>${report.month || '—'}</td>
+          <td>${report.year || '—'}</td>
+          <td>${formatSize(report.file_size || 0)}</td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-success btn-sm" onclick="downloadReport(${report.id}, '${report.report_name.replace(/'/g, "\\'")}')">⬇ Download</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteReportHistory(${report.id})">🗑️ Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (error) {
+      body.innerHTML = '<tr><td colspan="8" class="text-center text-muted" style="padding:24px;">Unable to load reports.</td></tr>';
+      console.error(error);
+    }
+  }
+
+  async function downloadReport(reportId, fileName) {
+    try {
+      const config = await securePrintConfigPromise;
+      if (!config.apiBaseUrl) throw new Error(config.apiConfigError || 'Central SecurePrint server is not configured.');
+      const API_BASE = `${config.apiBaseUrl}/api`;
+      const res = await fetch(`${API_BASE}/admin/reports/${reportId}/download`, {
+        headers: { Authorization: `Bearer ${Auth.getToken()}` }
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        Toast.error(errorData.message || 'Download failed.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || `report_${reportId}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      Toast.success('Report downloaded successfully.');
+    } catch (error) {
+      Toast.error('Download error: ' + error.message);
+    }
+  }
+
+  async function deleteReportHistory(reportId) {
+    if (!confirm('Delete this report permanently?')) return;
+    try {
+      const res = await api.delete(`/admin/reports/${reportId}`);
+      if (res.success) {
+        Toast.success('Report deleted.');
+        loadReportHistory();
+      } else {
+        Toast.error(res.message || 'Delete failed.');
+      }
+    } catch (error) {
+      Toast.error('Delete error: ' + error.message);
+    }
+  }
+
+  async function loadUsers() {
+    const res = await api.get('/admin/users');
+    if (!res.success) { Toast.error('Failed to load users'); return; }
+    allUsers = res.users;
+    renderUsers(allUsers);
+  }
+
+  function renderUsers(users) {
+    const body = $('#users-body');
+    if (users.length === 0) {
+      body.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">No users found.</td></tr>';
+      return;
+    }
+    body.innerHTML = users.map(u => {
+      const isActive = u.is_active;
+      const isSuperAdmin = u.role === 'superadmin';
+      return `
+        <tr class="user-row">
+          <td><div style="display:flex;align-items:center;gap:10px;"><div class="user-avatar">${u.name[0]}</div><div><div style="font-weight:600;">${u.name}</div><div class="text-muted text-sm">${u.email}</div></div></div></td>
+          <td>${u.employee_id || '—'}</td>
+          <td>${u.department || '—'}</td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-purple' : u.role === 'superadmin' ? 'badge-amber' : 'badge-blue'}">${u.role}</span></td>
+          <td class="text-muted text-sm">${u.last_login ? formatDate(u.last_login) : 'Never'}</td>
+          <td><span class="badge ${isActive ? 'badge-green' : 'badge-red'}">${isActive ? 'Active' : 'Inactive'}</span></td>
+          <td>
+            ${isSuperAdmin ? '<span class="text-muted text-sm">—</span>' : `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="openEditModal(${u.id})" title="Edit">✏️</button>
+              <button class="btn btn-ghost btn-sm" onclick="toggleUser(${u.id})" title="${isActive ? 'Deactivate' : 'Activate'}">${isActive ? '🚫' : '✅'}</button>
+              ${u.role === 'faculty' ? `<button class="btn btn-danger btn-sm" onclick="openDeleteModal(${u.id}, '${u.name.replace(/'/g,"\\'")}')" title="Delete">🗑️</button>` : ''}
+            </div>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterUsers() {
+    const q = $('#user-search').value.toLowerCase();
+    const filtered = allUsers.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.department || '').toLowerCase().includes(q));
+    renderUsers(filtered);
+  }
+
+  function openEditModal(userId) {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
+    editingUserId = userId;
+    $('#edit-name').value = user.name;
+    $('#edit-empid').value = user.employee_id || '';
+    $('#edit-dept').value = user.department || '';
+    openModal('edit-modal');
+  }
+
+  async function saveUserEdit() {
+    const btn = $('#edit-save-btn');
+    setLoading(btn, true);
+    const res = await api.put(`/admin/users/${editingUserId}`, {
+      name: $('#edit-name').value.trim(),
+      employee_id: $('#edit-empid').value.trim(),
+      department: $('#edit-dept').value
+    });
+    setLoading(btn, false);
+    if (res.success) {
+      Toast.success('User updated successfully!');
+      closeModal('edit-modal');
+      loadUsers();
+    } else {
+      Toast.error(res.message || 'Update failed.');
+    }
+  }
+
+  async function toggleUser(userId) {
+    const res = await api.put(`/admin/users/${userId}/toggle`, {});
+    if (res.success) { Toast.success(res.message); loadUsers(); }
+    else Toast.error(res.message);
+  }
+
+
+  function openDeleteModal(userId, name) {
+    deletingUserId = userId;
+    $('#delete-name').textContent = name;
+    openModal('delete-modal');
+  }
+
+  async function confirmDelete() {
+    const btn = $('#delete-confirm-btn');
+    setLoading(btn, true);
+    const res = await api.delete(`/admin/users/${deletingUserId}`);
+    setLoading(btn, false);
+    if (res.success) {
+      Toast.success('User deleted.');
+      closeModal('delete-modal');
+      loadUsers();
+    } else {
+      Toast.error(res.message);
+    }
+  }
+
+  async function exportReport() {
+    const now = new Date();
+    const month = ($('#rep-month') || {}).value || now.getMonth() + 1;
+    const year = ($('#rep-year') || {}).value || now.getFullYear();
+    Toast.success('Generating Excel report...');
+    try {
+      const config = await securePrintConfigPromise;
+      if (!config.apiBaseUrl) throw new Error(config.apiConfigError || 'Central SecurePrint server is not configured.');
+      const API_BASE = `${config.apiBaseUrl}/api`;
+      const url = `${API_BASE}/admin/export?month=${month}&year=${year}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${Auth.getToken()}` } });
+      if (res.ok) {
+        const blob = await res.blob();
+        const burl = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = burl;
+        a.download = `PrintReport_${month}_${year}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(burl);
+        Toast.success('Report exported successfully!');
+      } else Toast.error('Export failed.');
+    } catch (e) { Toast.error('Export error: ' + e.message); }
+  }
+
+  function openModal(id) { $(`#${id}`).classList.add('active'); }
+  function closeModal(id) { $(`#${id}`).classList.remove('active'); }
+</script>
+</body>
+</html>

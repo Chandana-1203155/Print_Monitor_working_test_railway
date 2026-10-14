@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SecurePrint — Secure Client Download</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-base); overflow: hidden; }
+    .bg-grid { position: fixed; inset: 0; z-index: 0; background-image: linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px); background-size: 40px 40px; }
+    .bg-glow { position: fixed; width: 600px; height: 600px; border-radius: 50%; background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%); top: -200px; right: -100px; z-index: 0; pointer-events: none; }
+    .container { position: relative; z-index: 1; width: 100%; max-width: 720px; padding: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; box-shadow: var(--shadow); text-align: center; }
+    .card h1 { font-family: var(--font-display); font-size: 28px; margin-bottom: 8px; }
+    .card p { color: var(--text-secondary); margin-bottom: 28px; }
+    .os-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+    .os-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; background: var(--bg-input); }
+    .os-icon { font-size: 32px; margin-bottom: 10px; }
+    .os-name { font-weight: 700; margin-bottom: 4px; }
+    .os-formats { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+    .btn { border: none; border-radius: 10px; padding: 10px 16px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: auto; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+    .muted { color: var(--text-muted); font-size: 12px; margin-top: 16px; }
+    .top-back { position: fixed; top: 20px; left: 20px; z-index: 2; }
+    #detected-msg { margin-bottom: 20px; color: var(--success); font-weight: 600; display: none; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <button class="top-back btn btn-ghost btn-sm" onclick="goBack()">← Back</button>
+
+  <div class="container">
+    <div class="card">
+      <h1>Secure Print Client</h1>
+      <div style="margin-bottom: 20px;">
+        <span class="badge" style="background: rgba(16,185,129,0.1); color: var(--success); padding: 6px 12px; border-radius: 20px; font-weight: 700;">Version <span id="version">1.0.0</span></span>
+        <span class="badge" style="background: rgba(59,130,246,0.1); color: var(--accent); padding: 6px 12px; border-radius: 20px; font-weight: 700; margin-left: 8px;">Stable</span>
+      </div>
+      <p>Download the Secure Print Client for your operating system. The client encrypts print jobs and communicates securely with the server.</p>
+      <div id="detected-msg">🖥️ Detected OS: <span id="detected-os"></span></div>
+
+      <div class="os-row">
+        <div class="os-card" data-os="win">
+          <div class="os-icon">🪟</div>
+          <div class="os-name">Windows</div>
+          <div class="os-formats">SecurePrintClient.exe / .msi</div>
+          <div class="meta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Size: <span id="size-win">—</span></div>
+          <div class="meta" style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; word-break: break-all;">SHA256: <span id="hash-win">—</span></div>
+          <button class="btn btn-primary" onclick="downloadClient('win')">Download for Windows</button>
+        </div>
+        <div class="os-card" data-os="mac">
+          <div class="os-icon">🍎</div>
+          <div class="os-name">macOS</div>
+          <div class="os-formats">SecurePrintClient.dmg / .pkg</div>
+          <div class="meta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Size: <span id="size-mac">—</span></div>
+          <div class="meta" style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; word-break: break-all;">SHA256: <span id="hash-mac">—</span></div>
+          <button class="btn btn-primary" onclick="downloadClient('mac')">Download for macOS</button>
+        </div>
+        <div class="os-card" data-os="linux">
+          <div class="os-icon">🐧</div>
+          <div class="os-name">Linux</div>
+          <div class="os-formats">SecurePrintClient.deb / .AppImage</div>
+          <div class="meta" style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Size: <span id="size-linux">—</span></div>
+          <div class="meta" style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; word-break: break-all;">SHA256: <span id="hash-linux">—</span></div>
+          <button class="btn btn-primary" onclick="downloadClient('linux')">Download for Linux</button>
+        </div>
+      </div>
+
+      <div style="text-align: left; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+        <h4 style="margin: 0 0 8px; font-size: 14px;">Release Notes</h4>
+        <ul style="font-size: 13px; color: var(--text-secondary); padding-left: 18px; margin: 0;">
+          <li>End-to-end encrypted print job submission</li>
+          <li>Secure user session verification</li>
+          <li>Auto-update support (enterprise build required)</li>
+          <li>Role-based access control integration</li>
+        </ul>
+      </div>
+
+      <p class="muted">Installers are produced by the Electron build pipeline. Set <code>release.json</code> with hashes and sizes after running <code>npm run build:client</code>.</p>
+    </div>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script>
+    const release = {
+      version: '1.0.0',
+      win: { file: '../../client/installers/win/SecurePrintClient.exe', size: '—', sha256: '—' },
+      mac: { file: '../../client/installers/mac/SecurePrintClient.dmg', size: '—', sha256: '—' },
+      linux: { file: '../../client/installers/linux/SecurePrintClient.deb', size: '—', sha256: '—' }
+    };
+
+    async function loadRelease() {
+      try {
+        const res = await fetch('../assets/data/release.json');
+        if (res.ok) {
+          const data = await res.json();
+          $('#version').textContent = data.version || '1.0.0';
+          Object.keys(release).forEach((key) => {
+            const info = data[key] || release[key];
+            $('#size-' + key).textContent = info.size || '—';
+            $('#hash-' + key).textContent = info.sha256 || '—';
+            release[key] = info;
+          });
+        }
+      } catch (e) {
+        console.log('release.json not found, using placeholder values.');
+      }
+    }
+
+    function detectOS() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('win')) return 'Windows';
+      if (ua.includes('mac')) return 'macOS';
+      if (ua.includes('linux')) return 'Linux';
+      return 'Unknown';
+    }
+
+    function downloadClient(platform) {
+      const info = release[platform];
+      if (!info || info.size === '—') {
+        Toast.warning('Installer for ' + platform + ' is not available. Build with npm run build:client.');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = info.file;
+      a.download = info.file.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function goBack() {
+      const user = Auth.getUser();
+      if (user && user.role === 'superadmin') electronAPI.navigate('super-admin');
+      else if (user && user.role === 'admin') electronAPI.navigate('admin');
+      else if (user && user.role === 'faculty') electronAPI.navigate('faculty');
+      else electronAPI.navigate('login');
+    }
+
+    (async () => {
+      const os = detectOS();
+      $('#detected-os').textContent = os;
+      $('#detected-msg').style.display = 'block';
+      await loadRelease();
+      const key = os === 'Windows' ? 'win' : os === 'macOS' ? 'mac' : os === 'Linux' ? 'linux' : null;
+      if (key) {
+        document.querySelectorAll('.os-card').forEach(c => c.style.border = '1px solid var(--border)');
+        const card = document.querySelector('.os-card[data-os="' + key + '"]');
+        if (card) card.style.border = '2px solid var(--accent)';
+      }
+    })();
+  </script>
+</body>
+</html>

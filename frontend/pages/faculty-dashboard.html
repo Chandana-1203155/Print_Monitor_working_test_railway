@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SecurePrint — Faculty Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    .print-wizard { display: flex; flex-direction: column; gap: 20px; }
+    .wizard-step { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
+    .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: white; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-num.done { background: var(--success); }
+    .step-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+
+    .files-list { max-height: 240px; overflow-y: auto; padding-right: 4px; }
+
+    .print-options { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+
+    .selected-file-preview {
+      background: var(--bg-input); border: 1px solid var(--border-accent);
+      border-radius: var(--radius); padding: 14px;
+      display: flex; align-items: center; gap: 14px;
+    }
+
+    .print-summary {
+      background: rgba(59,130,246,0.05); border: 1px solid var(--border-accent);
+      border-radius: var(--radius); padding: 16px;
+    }
+    .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .summary-row:last-child { border-bottom: none; font-weight: 600; color: var(--text-primary); }
+    .summary-row span:first-child { color: var(--text-muted); }
+
+    #logs-section { display: none; }
+    #print-section { display: block; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>🖨️ Secure<span>Print</span></h2>
+    </div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebar-name">Loading...</div>
+      <div class="sidebar-user-role">Faculty Member</div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" id="nav-print" onclick="showSection('print')">
+        <span class="nav-icon">🖨️</span> Print Document
+      </button>
+      <button class="nav-item" id="nav-logs" onclick="showSection('logs')">
+        <span class="nav-icon">📋</span> My Print Logs
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-block btn-sm" onclick="Auth.logout()">⬅ Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- PRINT SECTION -->
+    <div id="print-section">
+      <div class="page-header">
+        <h1 class="page-title">Print Document</h1>
+        <p class="page-subtitle">Select, preview, and print your documents securely</p>
+      </div>
+
+      <div id="main-alert"></div>
+
+      <div class="print-wizard">
+
+        <!-- Step 1: Select File -->
+        <div class="wizard-step">
+          <div class="step-header">
+            <div class="step-num" id="step1-num">1</div>
+            <div>
+              <div class="step-title">Select Document</div>
+              <div class="text-muted text-sm">Choose a PDF from Downloads or browse your system</div>
+            </div>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+              <button class="btn btn-ghost btn-sm" onclick="loadDownloads()">🔄 Refresh</button>
+              <button class="btn btn-ghost btn-sm" onclick="browseFile()">📂 Browse</button>
+            </div>
+          </div>
+
+          <div class="files-list" id="files-list">
+            <div class="flex-center" style="height:80px; color:var(--text-muted);">
+              <span>Loading Downloads folder...</span>
+            </div>
+          </div>
+
+          <div id="selected-preview" class="selected-file-preview hidden" style="margin-top:14px;">
+            <div class="file-icon">📄</div>
+            <div style="flex:1; min-width:0;">
+              <div class="file-name" id="sel-file-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+              <div class="file-meta" id="sel-file-meta"></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="previewSelected()">👁 Preview</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Print Options -->
+        <div class="wizard-step">
+          <div class="step-header">
+            <div class="step-num" id="step2-num">2</div>
+            <div>
+              <div class="step-title">Print Options</div>
+              <div class="text-muted text-sm">Configure your print settings</div>
+            </div>
+          </div>
+
+          <div class="print-options">
+            <div class="form-group">
+              <label class="form-label">Printer</label>
+              <select class="form-control" id="opt-printer">
+                <option value="">Default Printer</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Copies</label>
+              <input type="number" class="form-control" id="opt-copies" value="1" min="1" max="50" oninput="updateSummary()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Page Range</label>
+              <input type="text" class="form-control" id="opt-pages" placeholder="All or e.g. 1-5, 8" oninput="updateSummary()" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Color</label>
+              <select class="form-control" id="opt-color" onchange="updateSummary()">
+                <option value="false">Color</option>
+                <option value="true">Black & White</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duplex</label>
+              <select class="form-control" id="opt-duplex" onchange="updateSummary()">
+                <option value="">Single-sided</option>
+                <option value="long">Double-sided (long edge)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="print-summary" id="print-summary" style="display:none;">
+            <div class="summary-row"><span>File</span><span id="sum-file">—</span></div>
+            <div class="summary-row"><span>Range</span><span id="sum-range">—</span></div>
+            <div class="summary-row"><span>Copies</span><span id="sum-copies">—</span></div>
+            <div class="summary-row"><span>Color</span><span id="sum-color">—</span></div>
+            <div class="summary-row"><span>Duplex</span><span id="sum-duplex">—</span></div>
+            <div class="summary-row"><span>Total Sheets</span><span id="sum-total">—</span></div>
+          </div>
+        </div>
+
+        <!-- Step 3: Print -->
+        <div class="wizard-step">
+          <div class="step-header">
+            <div class="step-num" id="step3-num">3</div>
+            <div>
+              <div class="step-title">Send to Printer</div>
+              <div class="text-muted text-sm">Review and confirm your print job</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-primary btn-lg" id="print-btn" onclick="handlePrint()">
+              🖨️ Print Now
+            </button>
+            <button class="btn btn-ghost" onclick="clearSelection()">✕ Clear Selection</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LOGS SECTION -->
+    <div id="logs-section">
+      <div class="page-header flex-between">
+        <div>
+          <h1 class="page-title">My Print History</h1>
+          <p class="page-subtitle">All your print jobs are recorded here</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <select class="form-control" style="width:auto;" id="logs-month" onchange="logsPage=1;loadLogs()"></select>
+          <select class="form-control" style="width:auto;" id="logs-year" onchange="logsPage=1;loadLogs()"></select>
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>File Name</th>
+                <th>Copies</th><th>Sheets</th><th>Page Range</th>
+                <th>Status</th><th>Date & Time</th>
+              </tr>
+            </thead>
+            <tbody id="logs-body">
+              <tr><td colspan="7" class="text-center text-muted" style="padding:24px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex-between" style="padding:16px 20px; border-top:1px solid var(--border);">
+          <span class="text-muted text-sm" id="logs-info"></span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" id="logs-prev" onclick="changePage(-1)">← Prev</button>
+            <button class="btn btn-ghost btn-sm" id="logs-next" onclick="changePage(1)">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="../assets/js/app.js"></script>
+<script>
+  let currentUser = null;
+  let selectedFile = null;
+  let pdfPages = 1;
+  let logsPage = 1;
+
+  function calculateRangePages(range, totalPages) {
+    if (!range || range.trim() === '' || range.trim().toLowerCase() === 'all') return totalPages;
+    const selected = new Set();
+    range.split(',').forEach(part => {
+      part = part.trim();
+      if (!part) return;
+      if (part.includes('-')) {
+        const [startStr, endStr] = part.split('-');
+        const start = parseInt(startStr, 10);
+        const end = parseInt(endStr, 10);
+        if (isNaN(start) || isNaN(end)) return;
+        for (let p = Math.max(1, start); p <= Math.min(end, totalPages); p++) selected.add(p);
+      } else {
+        const p = parseInt(part, 10);
+        if (!isNaN(p) && p >= 1 && p <= totalPages) selected.add(p);
+      }
+    });
+    return selected.size;
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    currentUser = Auth.requireAuth(['faculty','admin','superadmin']);
+    if (!currentUser) return;
+    if (['admin','superadmin'].includes(currentUser.role)) { electronAPI.navigate(currentUser.role === 'superadmin' ? 'super-admin' : 'admin'); return; }
+
+    $('#sidebar-name').textContent = currentUser.name;
+    resetInactivityTimer();
+    populateLogsMonthYear();
+    await Promise.all([loadDownloads(), loadPrinters()]);
+  });
+
+  function populateLogsMonthYear() {
+    const now = new Date();
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthSel = $('#logs-month');
+    monthSel.innerHTML = '';
+    months.forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = i + 1;
+      opt.textContent = m;
+      if (i + 1 === now.getMonth() + 1) opt.selected = true;
+      monthSel.appendChild(opt);
+    });
+    const yearSel = $('#logs-year');
+    yearSel.innerHTML = '';
+    for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      if (y === now.getFullYear()) opt.selected = true;
+      yearSel.appendChild(opt);
+    }
+  }
+
+  function showSection(section) {
+    ['print','logs'].forEach(s => {
+      const el = $(`#${s}-section`);
+      if (el) el.style.display = s === section ? 'block' : 'none';
+    });
+    $$('.nav-item').forEach(n => n.classList.remove('active'));
+    $(`#nav-${section}`).classList.add('active');
+    if (section === 'logs') loadLogs();
+  }
+
+  async function loadDownloads() {
+    const list = $('#files-list');
+    list.innerHTML = '<div class="flex-center" style="height:80px;color:var(--text-muted);">🔄 Loading...</div>';
+    const result = await electronAPI.getDownloads();
+    if (!result.success || result.files.length === 0) {
+      list.innerHTML = '<div class="flex-center" style="height:80px;color:var(--text-muted);">No PDF files found in Downloads.<br>Use Browse to select a file.</div>';
+      return;
+    }
+    list.innerHTML = result.files.slice(0, 20).map(f => `
+      <div class="file-item" onclick="selectFile('${f.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}', '${f.name.replace(/'/g,"\\'")}', ${f.size})" id="fi-${CSS.escape(f.name)}">
+        <div class="file-icon">📄</div>
+        <div style="flex:1;min-width:0;">
+          <div class="file-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.name}</div>
+          <div class="file-meta">${formatSize(f.size)} · ${new Date(f.modified).toLocaleDateString()}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function browseFile() {
+    const result = await electronAPI.browseFile();
+    if (result.success) selectFile(result.path, result.name, 0);
+  }
+
+  async function selectFile(path, name, size) {
+    selectedFile = { path, name, size };
+    $$('.file-item').forEach(f => f.classList.remove('selected'));
+
+    $('#sel-file-name').textContent = name;
+    $('#sel-file-meta').textContent = size ? formatSize(size) : 'Browsed file';
+    $('#selected-preview').classList.remove('hidden');
+    $('#step1-num').classList.add('done');
+    $('#step1-num').textContent = '✓';
+    $('#print-summary').style.display = 'block';
+
+    // Get PDF page count
+    const info = await electronAPI.getPdfInfo(path);
+    pdfPages = info.success ? info.pages : 1;
+    updateSummary();
+    Toast.success(`Selected: ${name} (${pdfPages} pages)`);
+  }
+
+  async function previewSelected() {
+    if (!selectedFile) return;
+    await electronAPI.previewFile(selectedFile.path);
+  }
+
+  function clearSelection() {
+    selectedFile = null; pdfPages = 1;
+    $$('.file-item').forEach(f => f.classList.remove('selected'));
+    $('#selected-preview').classList.add('hidden');
+    $('#print-summary').style.display = 'none';
+    $('#step1-num').classList.remove('done');
+    $('#step1-num').textContent = '1';
+  }
+
+  async function loadPrinters() {
+    const result = await electronAPI.getPrinters();
+    const sel = $('#opt-printer');
+    sel.innerHTML = '<option value="">Default Printer</option>';
+    if (result.success) {
+      result.printers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name + (p.isDefault ? ' (Default)' : '');
+        sel.appendChild(opt);
+      });
+    }
+  }
+
+
+  function updateSummary() {
+    if (!selectedFile) return;
+    const copies = parseInt($('#opt-copies').value) || 1;
+    const pageRange = $('#opt-pages').value.trim() || 'All';
+    const selectedPages = calculateRangePages(pageRange, pdfPages);
+    const totalSheets = selectedPages * copies;
+    const monochrome = $('#opt-color').value === 'true';
+    const duplex = $('#opt-duplex').value;
+
+    const short = selectedFile.name.length > 30 ? selectedFile.name.substring(0,30) + '...' : selectedFile.name;
+    $('#sum-file').textContent = short;
+    $('#sum-range').textContent = pageRange || 'All';
+    $('#sum-copies').textContent = copies;
+    $('#sum-color').textContent = monochrome ? 'Black & White' : 'Color';
+    $('#sum-duplex').textContent = duplex === 'long' ? 'Double-sided (long edge)' : 'Single-sided';
+    $('#sum-total').textContent = totalSheets;
+  }
+
+  async function handlePrint() {
+    if (!selectedFile) { Toast.error('Please select a file first.'); return; }
+    const btn = $('#print-btn');
+    const copies = parseInt($('#opt-copies').value) || 1;
+    const printer = $('#opt-printer').value;
+    const pageRange = $('#opt-pages').value.trim() || 'All';
+    const monochrome = $('#opt-color').value === 'true';
+    const duplex = $('#opt-duplex').value;
+    const selectedPages = calculateRangePages(pageRange, pdfPages);
+    if (selectedPages < 1) {
+      Toast.error(`The page range "${pageRange}" selects no pages in this ${pdfPages}-page document.`);
+      return;
+    }
+
+    setLoading(btn, true);
+    try {
+      const printRes = await electronAPI.printFile({
+        filePath: selectedFile.path,
+        copies,
+        printer: printer || undefined,
+        pageRange: pageRange !== 'All' ? pageRange : undefined,
+        monochrome,
+        duplex: duplex || undefined,
+        accessToken: Auth.getToken(),
+        logRecord: {
+          file_name: selectedFile.name,
+          file_path: selectedFile.path,
+          num_pages: pdfPages,
+          page_range: pageRange
+        }
+      });
+
+      if (printRes.success && printRes.logStatus === 'recorded') {
+        Toast.success(`✅ Sent ${copies} cop${copies > 1 ? 'ies' : 'y'} of "${selectedFile.name}" to the printer queue`);
+        clearSelection();
+      } else if (printRes.success) {
+        const message = printRes.logStatus === 'recovery-required'
+          ? `Sent "${selectedFile.name}" to the printer queue, but its log needs recovery${printRes.logError ? `: ${printRes.logError}` : '.'}`
+          : `Sent "${selectedFile.name}" to the printer queue, but its central log is queued for retry${printRes.logError ? `: ${printRes.logError}` : '.'}`;
+        Toast.warning(message);
+        clearSelection();
+      } else {
+        Toast.warning(`Print failed: ${printRes.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      Toast.error('Print failed: ' + e.message);
+    }
+    setLoading(btn, false);
+  }
+
+  // Logs
+  async function loadLogs() {
+    const limit = 50;
+    const month = $('#logs-month').value;
+    const year = $('#logs-year').value;
+    const res = await api.get(`/print/my-logs?page=${logsPage}&limit=${limit}&month=${month}&year=${year}`);
+    const body = $('#logs-body');
+    if (!res.success || res.logs.length === 0) {
+      body.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:24px;">No print history found for the selected month.</td></tr>';
+      return;
+    }
+    const statusBadge = s => s === 'success' ? '<span class="badge badge-green">Success</span>' : s === 'failed' ? '<span class="badge badge-red">Failed</span>' : '<span class="badge badge-amber">Cancelled</span>';
+    body.innerHTML = res.logs.map((l, i) => `
+      <tr>
+        <td>${(logsPage - 1) * limit + i + 1}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${l.file_name}">${l.file_name}</td>
+        <td>${l.copies}</td>
+        <td><strong>${l.total_sheets}</strong></td>
+        <td>${l.page_range || 'All'}</td>
+        <td>${statusBadge(l.status)}</td>
+        <td>${formatDate(l.created_at)}</td>
+      </tr>
+    `).join('');
+    $('#logs-info').textContent = `Showing ${res.logs.length} of ${res.total} records`;
+    $('#logs-prev').disabled = logsPage <= 1;
+    $('#logs-next').disabled = logsPage >= res.pages;
+  }
+
+  function changePage(delta) {
+    logsPage += delta;
+    if (logsPage < 1) logsPage = 1;
+    loadLogs();
+  }
+</script>
+</body>
+</html>
